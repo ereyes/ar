@@ -9,6 +9,10 @@
 </head>
 <body>
   <script>
+    if (window.WebXRPolyfill) {
+      new WebXRPolyfill();
+    }
+    
     let canvas;
 
     function setup() {
