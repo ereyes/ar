@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR with Plane Detection and Water Effect</title>
+  <title>AR with Rear Camera</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 </head>
@@ -21,8 +21,19 @@
     function setup() {
       createCanvas(windowWidth, windowHeight, WEBGL);
 
-      // Access the camera
-      video = createCapture(VIDEO);
+      // Access the rear camera
+      const constraints = {
+        video: {
+          facingMode: { exact: "environment" }, // Request the rear camera
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+
+      video = createCapture(constraints, (stream) => {
+        console.log("Rear camera activated!");
+      });
+
       video.size(windowWidth, windowHeight);
       video.hide();
 
