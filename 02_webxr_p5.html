@@ -3,131 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR with Rear Camera</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  <title>AR Plane Detection with Water Effect</title>
   <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 </head>
-<body>
+<body style="margin: 0; overflow: hidden;">
   <script>
-    let video;
+    let xrSession, xrReferenceSpace, hitTestSource;
+    let renderer, scene, camera;
+    let waterEffect;
     let planeDetected = false;
-    let waterEffectStarted = false;
-
-    // Variables for water effect
-    let cols, rows;
-    let waveGrid = [];
-    let resolution = 20;
-
-    function setup() {
-      createCanvas(windowWidth, windowHeight, WEBGL);
-
-      // Access the rear camera
-      const constraints = {
-        video: {
-          facingMode: { exact: "environment" }, // Request the rear camera
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
-
-      video = createCapture(constraints, (stream) => {
-        console.log("Rear camera activated!");
-      });
-
-      video.size(windowWidth, windowHeight);
-      video.hide();
-
-      // Initialize water effect grid
-      cols = floor(width / resolution);
-      rows = floor(height / resolution);
-      for (let i = 0; i < cols; i++) {
-        waveGrid[i] = [];
-        for (let j = 0; j < rows; j++) {
-          waveGrid[i][j] = 0; // Initialize height
-        }
-      }
-
-      // Start WebXR session
-      initWebXR();
-    }
-
-    function draw() {
-      // Draw the camera feed
-      push();
-      translate(-width / 2, -height / 2, 0);
-      image(video, 0, 0, width, height);
-      pop();
-
-      if (planeDetected && !waterEffectStarted) {
-        startWaterEffect();
-        waterEffectStarted = true;
-      }
-
-      // Draw water effect
-      if (waterEffectStarted) {
-        drawWaterEffect();
-      }
-    }
-
-    function drawWaterEffect() {
-      translate(-width / 2, -height / 2, 0);
-      for (let i = 0; i < cols - 1; i++) {
-        for (let j = 0; j < rows - 1; j++) {
-          let x = i * resolution;
-          let y = j * resolution;
-          let nextX = (i + 1) * resolution;
-          let nextY = (j + 1) * resolution;
-
-          fill(0, 0, 255, 150);
-          beginShape();
-          vertex(x, y, waveGrid[i][j]);
-          vertex(nextX, y, waveGrid[i + 1][j]);
-          vertex(nextX, nextY, waveGrid[i + 1][j + 1]);
-          vertex(x, nextY, waveGrid[i][j + 1]);
-          endShape(CLOSE);
-
-          // Update wave heights for animation
-          waveGrid[i][j] = sin((frameCount + i * j) * 0.1) * 10;
-        }
-      }
-    }
 
     async function initWebXR() {
-      if (navigator.xr) {
-        const session = await navigator.xr.requestSession("immersive-ar", {
-          requiredFeatures: ["hit-test"]
-        });
-
-        session.addEventListener("select", () => {
-          planeDetected = true;
-        });
-
-        session.addEventListener("end", () => {
-          planeDetected = false;
-          waterEffectStarted = false;
-        });
-
-        const referenceSpace = await session.requestReferenceSpace("local");
-        const viewerSpace = await session.requestReferenceSpace("viewer");
-
-        const hitTestSource = await session.requestHitTestSource({
-          space: viewerSpace
-        });
-
-        session.requestAnimationFrame((time, frame) => {
-          const hitTestResults = frame.getHitTestResults(hitTestSource);
-          if (hitTestResults.length > 0) {
-            planeDetected = true;
-          }
-        });
-      } else {
-        console.error("WebXR is not supported on this device.");
+      if (!navigator.xr || !navigator.xr.isSessionSupported) {
+        alert("WebXR not supported on this device.");
+        return;
       }
+
+      const isSupported = await navigator.xr.isSessionSupported("immersive-ar");
+      if (!isSupported) {
+        alert("AR is not supported on this browser.");
+        return;
+      }
+
+      // Start an AR session
+      xrSession = await navigator.xr.requestSession("immersive-ar", {
+        requiredFeatures: ["local", "hit-test"]
+      });
+
+      xrSession.addEventListener("end", () => {
+        console.log("Session ended.");
+      });
+
+      xrReferenceSpace = await xrSession.requestReferenceSpace("local");
+      const viewerSpace = await xrSession.requestReferenceSpace("viewer");
+
+      hitTestSource = await xrSession.requestHitTestSource({
+        space: viewerSpace
+      });
+
+      setupThreeJS();
+      xrSession.requestAnimationFrame(onXRFrame);
     }
 
-    function startWaterEffect() {
-      console.log("Plane detected! Starting water effect...");
+    function setupThreeJS() {
+      // Initialize Three.js renderer
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.setReferenceSpaceType("local");
+      renderer.xr.setSession(xrSession);
+      document.body.appendChild(renderer.domElement);
+
+      // Create scene and camera
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+
+      // Add basic lighting
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(0, 10, 10).normalize();
+      scene.add(light);
+
+      // Create water effect
+      const geometry = new THREE.PlaneGeometry(1, 1, 50, 50);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0x1e90ff,
+        transparent: true,
+        opacity: 0.8,
+        wireframe: true
+      });
+      waterEffect = new THREE.Mesh(geometry, material);
+      waterEffect.visible = false;
+      scene.add(waterEffect);
     }
+
+    function onXRFrame(time, frame) {
+      const session = frame.session;
+      session.requestAnimationFrame(onXRFrame);
+
+      // Perform hit test
+      const hitTestResults = frame.getHitTestResults(hitTestSource);
+      if (hitTestResults.length > 0) {
+        const hit = hitTestResults[0];
+        const pose = hit.getPose(xrReferenceSpace);
+
+        // Place the water effect on the detected plane
+        if (!planeDetected) {
+          planeDetected = true;
+          console.log("Plane detected!");
+        }
+
+        if (pose) {
+          waterEffect.position.set(
+            pose.transform.position.x,
+            pose.transform.position.y,
+            pose.transform.position.z
+          );
+          waterEffect.rotation.setFromRotationMatrix(
+            new THREE.Matrix4().fromArray(pose.transform.orientation)
+          );
+          waterEffect.visible = true;
+        }
+      } else {
+        planeDetected = false;
+        waterEffect.visible = false;
+      }
+
+      // Render the scene
+      renderer.render(scene, camera);
+    }
+
+    initWebXR();
   </script>
 </body>
 </html>
