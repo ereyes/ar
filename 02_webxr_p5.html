@@ -3,120 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Plane Detection with Water Effect</title>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+  <title>AR.js Example</title>
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://cdn.rawgit.com/jeromeetienne/ar.js/2.0.1/aframe/build/aframe-ar.min.js"></script>
 </head>
 <body style="margin: 0; overflow: hidden;">
-  <script>
-    let xrSession, xrReferenceSpace, hitTestSource;
-    let renderer, scene, camera;
-    let waterEffect;
-    let planeDetected = false;
-
-    async function initWebXR() {
-      if (!navigator.xr || !navigator.xr.isSessionSupported) {
-        alert("WebXR not supported on this device.");
-        return;
-      }
-
-      const isSupported = await navigator.xr.isSessionSupported("immersive-ar");
-      if (!isSupported) {
-        alert("AR is not supported on this browser.");
-        return;
-      }
-
-      // Start an AR session
-      xrSession = await navigator.xr.requestSession("immersive-ar", {
-        requiredFeatures: ["local", "hit-test"]
-      });
-
-      xrSession.addEventListener("end", () => {
-        console.log("Session ended.");
-      });
-
-      xrReferenceSpace = await xrSession.requestReferenceSpace("local");
-      const viewerSpace = await xrSession.requestReferenceSpace("viewer");
-
-      hitTestSource = await xrSession.requestHitTestSource({
-        space: viewerSpace
-      });
-
-      setupThreeJS();
-      xrSession.requestAnimationFrame(onXRFrame);
-    }
-
-    function setupThreeJS() {
-      // Initialize Three.js renderer
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.setReferenceSpaceType("local");
-      renderer.xr.setSession(xrSession);
-      document.body.appendChild(renderer.domElement);
-
-      // Create scene and camera
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(
-        70,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        100
-      );
-
-      // Add basic lighting
-      const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(0, 10, 10).normalize();
-      scene.add(light);
-
-      // Create water effect
-      const geometry = new THREE.PlaneGeometry(1, 1, 50, 50);
-      const material = new THREE.MeshBasicMaterial({
-        color: 0x1e90ff,
-        transparent: true,
-        opacity: 0.8,
-        wireframe: true
-      });
-      waterEffect = new THREE.Mesh(geometry, material);
-      waterEffect.visible = false;
-      scene.add(waterEffect);
-    }
-
-    function onXRFrame(time, frame) {
-      const session = frame.session;
-      session.requestAnimationFrame(onXRFrame);
-
-      // Perform hit test
-      const hitTestResults = frame.getHitTestResults(hitTestSource);
-      if (hitTestResults.length > 0) {
-        const hit = hitTestResults[0];
-        const pose = hit.getPose(xrReferenceSpace);
-
-        // Place the water effect on the detected plane
-        if (!planeDetected) {
-          planeDetected = true;
-          console.log("Plane detected!");
-        }
-
-        if (pose) {
-          waterEffect.position.set(
-            pose.transform.position.x,
-            pose.transform.position.y,
-            pose.transform.position.z
-          );
-          waterEffect.rotation.setFromRotationMatrix(
-            new THREE.Matrix4().fromArray(pose.transform.orientation)
-          );
-          waterEffect.visible = true;
-        }
-      } else {
-        planeDetected = false;
-        waterEffect.visible = false;
-      }
-
-      // Render the scene
-      renderer.render(scene, camera);
-    }
-
-    initWebXR();
-  </script>
+  <a-scene embedded arjs="sourceType: webcam;">
+    <!-- Add a water effect -->
+    <a-plane position="0 0 -2" rotation="-90 0 0" width="2" height="2" color="lightblue"></a-plane>
+    <a-sphere position="0 0.5 -2" radius="0.1" color="blue" animation="property: position; to: 0 0.6 -2; dur: 1000; easing: easeInOutSine; loop: true;"></a-sphere>
+  </a-scene>
 </body>
 </html>
