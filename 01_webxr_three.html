@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Animation</title>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.rawgit.com/jeromeetienne/ar.js/2.2.1/aframe/build/aframe-ar.min.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+  <!-- AR.js Scene -->
+  <a-scene embedded arjs>
+    <!-- Surface and Animation -->
+    <a-plane position="0 0 -1" rotation="-90 0 0" width="5" height="5" color="lightblue"></a-plane>
+    <a-sphere position="0 0.5 -1" radius="0.1" color="red" animation="property: position; to: 0 1 -1; dur: 1000; loop: true"></a-sphere>
+  </a-scene>
+</body>
+</html>
